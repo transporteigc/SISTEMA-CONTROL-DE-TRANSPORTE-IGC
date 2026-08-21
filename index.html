@@ -130,6 +130,30 @@ footer.site{background:var(--navy);color:#8EA6B0;padding:18px 5vw;font-size:11.5
 footer.site strong{color:#fff;}
 .hint{font-size:11px;color:var(--slate);margin-top:3px;}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+.diag-box{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:var(--cream);overflow:hidden;}
+.diag-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:#F1EEE5;border-bottom:1px solid var(--line);}
+.diag-head strong{font-family:'Space Grotesk',sans-serif;color:var(--navy);font-size:12.5px;}
+.diag-grid{display:grid;grid-template-columns:210px 1fr;}
+.diag-label,.diag-value{padding:8px 11px;border-bottom:1px solid var(--line);font-size:11.5px;}
+.diag-label{font-weight:600;color:var(--slate);background:rgba(255,255,255,.45);}
+.diag-value{font-family:'IBM Plex Mono',monospace;overflow-wrap:anywhere;white-space:normal;}
+.diag-grid > :nth-last-child(-n+2){border-bottom:none;}
+.diag-ok{color:var(--green);font-weight:600;}
+.diag-warn{color:var(--amber);font-weight:600;}
+.diag-error{color:var(--red);font-weight:600;}
+.diag-muted{color:var(--slate);}
+.diag-log{margin:0;padding:11px 12px;background:#0F2430;color:#DDE8ED;max-height:210px;overflow:auto;font-family:'IBM Plex Mono',monospace;font-size:10.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;}
+@media (max-width:700px){.diag-grid{grid-template-columns:1fr}.diag-label{border-bottom:none;padding-bottom:2px}.diag-value{padding-top:2px}.diag-grid > :nth-last-child(-n+2){border-bottom:1px solid var(--line)}}
+
+.login-overlay{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;}
+.login-overlay.hidden{display:none;}
+.login-box{background:var(--paper);border-radius:14px;padding:28px 26px;max-width:360px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.35);}
+.login-box h2{margin:0 0 8px;color:var(--navy);font-size:20px;}
+.login-box p{color:var(--slate);font-size:12.5px;margin:0 0 16px;line-height:1.5;}
+body.sesion-activa .login-overlay{display:none;}
+body:not(.sesion-activa) header.site,body:not(.sesion-activa) nav.tabs,body:not(.sesion-activa) main{display:none;}
+.solo-aprobador{display:none;}
+body.rol-aprobador .solo-aprobador{display:inline-block;}
 </style>
 </head>
 <body>
@@ -142,11 +166,28 @@ footer.site strong{color:#fff;}
       <p>Producción diaria → consolidados → liquidación quincenal → aprobación · Válido para 2026 y años siguientes</p>
     </div>
     <div class="user-box">
-      <label for="usuarioActual">Usuario</label>
-      <input type="text" id="usuarioActual" placeholder="Tu nombre">
+      <input type="hidden" id="usuarioActual" value="">
+      <div id="sesionInfo" style="text-align:right;">
+        <div style="font-size:12.5px;font-weight:600;color:#fff;" id="sesionNombre">—</div>
+        <div style="font-size:10.5px;color:#B9CBD3;" id="sesionRol">—</div>
+      </div>
+      <button class="btn sm" id="btnCerrarSesion" onclick="cerrarSesion()" style="border-color:rgba(255,255,255,.3);color:#fff;background:transparent;">Cerrar sesión</button>
     </div>
   </div>
 </header>
+
+<div id="loginOverlay" class="login-overlay">
+  <div class="login-box">
+    <img src="" alt="" style="display:none;">
+    <h2>TRANSPORTE IGC</h2>
+    <p>Sistema de registro y liquidación de conductores — inicia sesión para continuar. La información se consulta siempre desde Google Sheets, la base principal.</p>
+    <div class="field"><label for="loginUsuario">Usuario</label><input type="text" id="loginUsuario" autocomplete="username"></div>
+    <div class="field"><label for="loginPassword">Contraseña</label><input type="password" id="loginPassword" autocomplete="current-password"></div>
+    <div id="loginError"></div>
+    <div class="btn-row"><button class="btn primary" style="width:100%;justify-content:center;" onclick="intentarLogin()">Ingresar</button></div>
+    <p class="hint" style="margin-top:14px;">Antes de iniciar sesión, guarda la URL de Apps Script y la clave de conexión si aún no lo has hecho (quedan guardadas en este navegador).</p>
+  </div>
+</div>
 
 <nav class="tabs">
   <div class="tabs-inner" id="tabsInner">
@@ -336,7 +377,7 @@ footer.site strong{color:#fff;}
     <div class="liq-line total" style="border-top:1px dashed var(--line);font-size:13.5px;font-weight:600;color:var(--ink);"><span>Subtotal</span><span class="ll-val" id="liqSubtotal">$0</span></div>
     <div class="liq-line"><span>Bonificación</span><input type="number" id="liqBonificacion"></div>
     <div class="liq-line"><span>Básico</span><input type="number" id="liqBasico"></div>
-    <div class="liq-line total" style="border-top:1px dashed var(--line);font-size:13.5px;font-weight:600;color:var(--ink);"><span>Adicional (subtotal − básico)</span><span class="ll-val" id="liqAdicional">$0</span></div>
+    <div class="liq-line total" style="border-top:1px dashed var(--line);font-size:13.5px;font-weight:600;color:var(--ink);"><span>Adicional (subtotal − básico + bonificación)</span><span class="ll-val" id="liqAdicional">$0</span></div>
     <div class="liq-line">
       <span>Beneficio de alimentación — días reconocidos <input type="number" id="liqDiasAlim" style="width:60px;display:inline-block;margin-left:6px;"> × valor/día <input type="number" id="liqValorDiaAlim" style="width:90px;display:inline-block;"></span>
       <span class="ll-val" id="liqAlimTotal">$0</span>
@@ -350,7 +391,7 @@ footer.site strong{color:#fff;}
     <div class="btn-row">
       <button class="btn" onclick="guardarLiquidacion('Borrador')">Guardar borrador</button>
       <button class="btn" onclick="guardarLiquidacion('En revisión')">Enviar a revisión</button>
-      <button class="btn gold" onclick="guardarLiquidacion('Aprobada')">Aprobar</button>
+      <button class="btn gold solo-aprobador" onclick="guardarLiquidacion('Aprobada')">Aprobar</button>
       <button class="btn danger" onclick="guardarLiquidacion('Rechazada')">Rechazar</button>
     </div>
   </div>
@@ -529,8 +570,8 @@ footer.site strong{color:#fff;}
 
   <div class="card">
     <h3>Copia de seguridad</h3>
-    <p style="font-size:13px;color:var(--slate);">Todo lo que registras se guarda solo en este navegador (localStorage) — si cambias de computador o borras el caché, se pierde. Usa estos botones para respaldarlo.</p>
-    <div class="callout info">Esta página no tiene servidor propio, así que no puede subir archivos a Google Drive de forma silenciosa y automática — eso requeriría conectar una cuenta de Google real (autorización OAuth) o un backend. Lo que sí hace: generar el archivo de respaldo al instante y abrirte un correo ya redactado a <b>transporteigcsas@gmail.com</b> para que lo adjuntes y envíes en un clic.</div>
+    <p style="font-size:13px;color:var(--slate);">Google Sheets es la base principal. Este navegador conserva una copia local temporal para poder recuperar la vista si hay una falla de conexión.</p>
+    <div class="callout info">El respaldo .json sigue disponible como una segunda capa de seguridad. La operación diaria no depende de este archivo: los cambios normales se guardan automáticamente en Google Sheets.</div>
     <div class="btn-row">
       <button class="btn primary" onclick="descargarRespaldo()">Descargar copia de seguridad (.json)</button>
       <button class="btn" onclick="enviarRespaldoPorCorreo()">Preparar correo con la copia a transporteigcsas@gmail.com</button>
@@ -539,13 +580,68 @@ footer.site strong{color:#fff;}
   </div>
 
   <div class="card">
-    <h3>Google Sheets — guardado automático (Apps Script)</h3>
-    <div class="callout info">Este sistema está conectado a tu Google Apps Script. Cada vez que registras o cambias algo aquí (viajes, préstamos, bonificaciones, liquidaciones, conductores, vehículos, rutas), el sistema envía automáticamente una copia completa y actualizada de todos los datos a tu hoja de Google Sheets, en segundo plano — no tienes que hacer nada más.</div>
+    <h3>Google Sheets — base de datos principal</h3>
+    <div class="callout info">Los datos se cargan desde Google Sheets al abrir la aplicación. Cada cambio se envía automáticamente como una operación individual, de modo que varios computadores pueden trabajar sobre la misma base sin reemplazar toda la información del otro equipo.</div>
+
+    <h4>1. URL de la aplicación web de Apps Script</h4>
+    <div class="grid2">
+      <div class="field">
+        <label for="appsScriptUrlInput">URL de Apps Script (/exec)</label>
+        <input type="text" id="appsScriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+        <p class="hint">Ya no necesitas editar el código HTML para cambiar la implementación. Pega aquí la URL nueva que entrega Apps Script.</p>
+      </div>
+      <div class="field" style="align-self:end;">
+        <button class="btn" style="width:100%;" onclick="guardarUrlAppsScript()">Guardar / cambiar URL</button>
+      </div>
+    </div>
+
+    <h4>2. Clave de conexión</h4>
+    <div class="grid2">
+      <div class="field">
+        <label for="sheetsAccessKey">Clave definida en Apps Script</label>
+        <input type="text" id="sheetsAccessKey" placeholder="Ej: IGC-2026-...">
+        <p class="hint">Se guarda solo en este navegador. Debes ingresarla una vez en cada computador autorizado.</p>
+      </div>
+      <div class="field" style="align-self:end;">
+        <button class="btn" style="width:100%;" onclick="guardarClaveConexion()">Guardar / cambiar clave</button>
+      </div>
+    </div>
+
     <div class="btn-row">
+      <button class="btn gold" onclick="ejecutarDiagnosticoAppsScript(true)">Diagnosticar conexión</button>
       <button class="btn primary" onclick="sincronizarAhoraManual()">Sincronizar ahora</button>
+      <button class="btn" onclick="recargarDesdeGoogleSheets(true)">Recargar desde Google Sheets</button>
+      <button class="btn" onclick="inicializarRemotoManual()">Inicializar Sheets con esta caché</button>
     </div>
     <p class="hint" id="asEstado">Estado: iniciando…</p>
-    <p class="hint">Si algún día cambias de Apps Script, solo tienes que actualizar el valor de <span class="mono">URL_APPS_SCRIPT</span> al inicio del bloque de código de este archivo.</p>
+    <p class="hint">La aplicación revisa cambios remotos periódicamente y también cuando vuelves a esta pestaña del navegador.</p>
+
+    <div class="diag-box" id="diagBox">
+      <div class="diag-head">
+        <strong>Diagnóstico de conexión</strong>
+        <div class="btn-row" style="margin:0;">
+          <button class="btn sm" onclick="copiarDiagnosticoAppsScript()">Copiar diagnóstico</button>
+          <button class="btn sm" onclick="limpiarDiagnosticoAppsScript()">Limpiar</button>
+        </div>
+      </div>
+      <div class="diag-grid">
+        <div class="diag-label">Navegador en línea</div><div class="diag-value" id="diagOnline">—</div>
+        <div class="diag-label">URL configurada</div><div class="diag-value" id="diagUrl">—</div>
+        <div class="diag-label">Formato URL /exec</div><div class="diag-value" id="diagUrlFormato">—</div>
+        <div class="diag-label">Clave disponible</div><div class="diag-value" id="diagClave">—</div>
+        <div class="diag-label">Prueba PING</div><div class="diag-value" id="diagPing">No ejecutada</div>
+        <div class="diag-label">Servicio detectado</div><div class="diag-value" id="diagServicio">—</div>
+        <div class="diag-label">Base inicializada</div><div class="diag-value" id="diagInicializado">—</div>
+        <div class="diag-label">Versión servidor</div><div class="diag-value" id="diagVersion">—</div>
+        <div class="diag-label">Última escritura</div><div class="diag-value" id="diagUltimaEscritura">—</div>
+        <div class="diag-label">Esquema / tablas</div><div class="diag-value" id="diagSchema">No probado</div>
+        <div class="diag-label">Lectura de la base</div><div class="diag-value" id="diagLoad">No probada</div>
+        <div class="diag-label">Origen del aplicativo</div><div class="diag-value" id="diagOrigin">—</div>
+        <div class="diag-label">Última prueba</div><div class="diag-value" id="diagHora">—</div>
+        <div class="diag-label">Error técnico</div><div class="diag-value" id="diagError">Ninguno</div>
+      </div>
+      <pre class="diag-log" id="diagLog">Diagnóstico aún no ejecutado.</pre>
+    </div>
   </div>
 
   <div class="card">
@@ -604,7 +700,7 @@ footer.site strong{color:#fff;}
 
 </main>
 
-<footer class="site"><strong>Transporte IGC S.A.S.</strong> · Tu carga segura · Herramienta interna de registro y liquidación — los datos se guardan en este navegador (localStorage), no en un servidor.</footer>
+<footer class="site"><strong>Transporte IGC S.A.S.</strong> · Tu carga segura · Herramienta interna de registro y liquidación — Google Sheets es la única base de datos; localStorage solo guarda la URL/clave de conexión en este navegador.</footer>
 
 <script>
 var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -635,14 +731,75 @@ function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(
 function fmt(n){ n=Math.round(n||0); return "$"+n.toLocaleString("es-CO"); }
 function nowDateStr(){ var d=new Date(); return dstr(d.getFullYear(),d.getMonth()+1,d.getDate()); }
 function nowTimeStr(){ var d=new Date(); return pad2(d.getHours())+":"+pad2(d.getMinutes()); }
-function usuario(){ return document.getElementById("usuarioActual").value.trim() || "Sin identificar"; }
+function usuario(){ return SESION ? SESION.nombre : "Sin identificar"; }
+function usuarioLogin(){ return SESION ? SESION.usuario : ""; }
 
 var DB_KEY = "igc_nomina_db_v1";
 var USER_KEY = "igc_nomina_usuario";
 
+/* ===== Usuarios y sesión =====
+   Solo control de acceso a la interfaz. La autorización real (por ejemplo, quién
+   puede aprobar) siempre se vuelve a validar en Apps Script, nunca solo aquí. */
+var USERS = {
+  "egutierrez": {password:"IGC.2011@T", rol:"APROBADOR", nombre:"Eydis Gutiérrez"},
+  "dbarrios":   {password:"Julian@2012", rol:"ELABORADOR", nombre:"Doris Barrios"}
+};
+var SESSION_KEY = "igc_sesion_v1";
+var SESION = null; /* {usuario, nombre, rol, ingresoFecha, ingresoHora} — solo dura la pestaña actual */
+
+function cargarSesion(){
+  try {
+    var raw = sessionStorage.getItem(SESSION_KEY);
+    SESION = raw ? JSON.parse(raw) : null;
+  } catch(e){ SESION = null; }
+  if(SESION && (!USERS[SESION.usuario] || USERS[SESION.usuario].nombre !== SESION.nombre)) SESION = null;
+  aplicarEstadoSesion();
+  return SESION;
+}
+function aplicarEstadoSesion(){
+  var overlay = document.getElementById("loginOverlay");
+  if(SESION){
+    document.body.classList.add("sesion-activa");
+    document.body.classList.toggle("rol-aprobador", SESION.rol === "APROBADOR");
+    if(overlay) overlay.classList.add("hidden");
+    document.getElementById("usuarioActual").value = SESION.usuario;
+    document.getElementById("sesionNombre").textContent = SESION.nombre;
+    document.getElementById("sesionRol").textContent = SESION.rol === "APROBADOR" ? "Aprobador" : "Elaborador";
+  } else {
+    document.body.classList.remove("sesion-activa");
+    document.body.classList.remove("rol-aprobador");
+    if(overlay) overlay.classList.remove("hidden");
+  }
+}
+function intentarLogin(){
+  var u = (document.getElementById("loginUsuario").value || "").trim();
+  var p = document.getElementById("loginPassword").value || "";
+  var errBox = document.getElementById("loginError");
+  errBox.innerHTML = "";
+  var def = USERS[u];
+  if(!def || def.password !== p){
+    errBox.innerHTML = '<div class="callout danger">Usuario o contraseña incorrectos.</div>';
+    return;
+  }
+  SESION = {usuario:u, nombre:def.nombre, rol:def.rol, ingresoFecha:nowDateStr(), ingresoHora:nowTimeStr()};
+  try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(SESION)); } catch(e){}
+  document.getElementById("loginPassword").value = "";
+  aplicarEstadoSesion();
+  arrancarAplicativoTrasLogin();
+}
+function cerrarSesion(){
+  if(!confirm("¿Cerrar sesión?")) return;
+  SESION = null;
+  try { sessionStorage.removeItem(SESSION_KEY); } catch(e){}
+  aplicarEstadoSesion();
+}
+function esAprobador(){ return !!(SESION && SESION.rol === "APROBADOR"); }
+
 /* ===== Guardado automático en Google Sheets vía Google Apps Script ===== */
-/* Pega aquí la URL de tu implementación de Apps Script (termina en /exec). */
-var URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbzW5xaDW1Nz43DHzvNRIwzysmCHB5dfNG3HO0j_qudpBIfx4t_md1fpAk55SVCl15MgdQ/exec";
+/* La URL se puede cambiar desde Configuración sin editar nuevamente este HTML. */
+var APPS_SCRIPT_URL_STORAGE = "igc_apps_script_url_v1";
+var URL_APPS_SCRIPT_DEFAULT = "https://script.google.com/macros/s/AKfycbwgKIAp0TTWxKc1Tss8AbdvI--r9P_Bi_CuaRrgbe_dqaJvv2z_W2_reOiltRM-yYTjXQ/exec";
+var URL_APPS_SCRIPT = (localStorage.getItem(APPS_SCRIPT_URL_STORAGE) || URL_APPS_SCRIPT_DEFAULT).trim();
 
 function seedDB(){
   return {
@@ -685,12 +842,23 @@ function seedDB(){
 }
 
 var DB = null;
+var REMOTE_BASELINE = null;
+var SYNC_READY = false;
+var LAST_SERVER_VERSION = 0;
+var ACCESS_KEY_STORAGE = "igc_sheets_access_key_v2";
+var ACCESS_KEY_DEFAULT = "IGC-2026-TRANSPORTE-BASE";
+
+function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+/* Google Sheets es la única base de datos. localStorage NO se usa para viajes, conductores,
+   liquidaciones, préstamos, bonificaciones ni historial — solo para la URL/clave de conexión,
+   que no son datos de negocio. DB arranca vacío/estructural mientras se descarga lo real. */
 function loadDB(){
-  var raw = localStorage.getItem(DB_KEY);
-  if(!raw){ DB = seedDB(); saveDB(); }
-  else { DB = JSON.parse(raw); }
+  DB = seedDB();
 }
-function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify(DB)); programarSincronizacionAppsScript(); }
+function saveDB(){
+  if(SYNC_READY) programarSincronizacionAppsScript();
+}
 
 function logHistorial(entidad, registroId, campo, anterior, nuevo, motivo, quincenaKey, conductorId){
   DB.historial.push({
@@ -1048,9 +1216,9 @@ function recalcLiquidacion(){
   var valorDiaAlim = parseFloat(document.getElementById("liqValorDiaAlim").value)||0;
 
   var subtotal = producido - segSocial - prestamo;
-  var adicional = subtotal - basico;
+  var adicional = subtotal - basico + bonificacion;
   var alimTotal = diasAlim*valorDiaAlim;
-  var neto = adicional + basico + bonificacion + alimTotal;
+  var neto = adicional + basico + alimTotal;
 
   document.getElementById("liqSubtotal").textContent = fmt(subtotal);
   document.getElementById("liqAdicional").textContent = fmt(adicional);
@@ -1058,11 +1226,7 @@ function recalcLiquidacion(){
   document.getElementById("liqNeto").textContent = fmt(neto);
 }
 
-var APROBADOR_AUTORIZADO = "Eydis Gutiérrez";
-var CORREO_APROBADOR = "eydisg.transporteigc@gmail.com";
-function normalizarNombre(s){
-  return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
-}
+var CORREO_NOTIFICACION_APROBACION = "dorisbarrios.transporteigc@gmail.com";
 function abrirGmailCompose(destinatario, asunto, cuerpo){
   var url = "https://mail.google.com/mail/?view=cm&fs=1&to="+encodeURIComponent(destinatario)+"&su="+encodeURIComponent(asunto)+"&body="+encodeURIComponent(cuerpo);
   window.open(url, "_blank");
@@ -1075,17 +1239,15 @@ function guardarLiquidacion(estado){
   var existente = liquidacionExistente(conductorId, quincenaKey);
   var alertZone = document.getElementById("liqAlertZone");
 
+  if(!SESION){ alert("Tu sesión expiró. Vuelve a iniciar sesión."); return; }
   if(existente && (existente.estado==="Aprobada" || existente.estado==="Pagada") && estado!=="Aprobada"){
     var comentario0 = document.getElementById("liqComentario").value.trim();
     if(!comentario0){ alert("Esta liquidación ya fue aprobada. Escribe un motivo en el comentario para poder modificarla."); return; }
   }
-  if(estado==="Aprobada"){
-    var aprobador = usuario();
-    if(aprobador==="Sin identificar" || !aprobador.trim()){ alert("Escribe tu nombre en el campo Usuario (arriba a la derecha) antes de aprobar."); return; }
-    if(normalizarNombre(aprobador) !== normalizarNombre(APROBADOR_AUTORIZADO)){
-      alertZone.innerHTML = '<div class="callout danger">No estás autorizado para generar aprobaciones. Esta acción solo puede realizarla '+APROBADOR_AUTORIZADO+'.</div>';
-      return;
-    }
+  if(estado==="Aprobada" && !esAprobador()){
+    /* Chequeo local solo para experiencia de usuario — Apps Script vuelve a validarlo siempre. */
+    alertZone.innerHTML = '<div class="callout danger">No estás autorizado para aprobar liquidaciones. Solo el usuario aprobador puede hacerlo.</div>';
+    return;
   }
 
   var producido = window.currentLiq.totalProducido;
@@ -1096,9 +1258,9 @@ function guardarLiquidacion(estado){
   var diasAlim = parseFloat(document.getElementById("liqDiasAlim").value)||0;
   var valorDiaAlim = parseFloat(document.getElementById("liqValorDiaAlim").value)||0;
   var subtotal = producido - segSocial - prestamoVal;
-  var adicional = subtotal - basico;
+  var adicional = subtotal - basico + bonificacion;
   var alimTotal = diasAlim*valorDiaAlim;
-  var neto = adicional + basico + bonificacion + alimTotal;
+  var neto = adicional + basico + alimTotal;
   var comentario = document.getElementById("liqComentario").value;
 
   var estadoAnterior = existente ? existente.estado : null;
@@ -1108,28 +1270,39 @@ function guardarLiquidacion(estado){
   registro.subtotal = subtotal; registro.bonificacion = bonificacion; registro.basico = basico; registro.adicional = adicional;
   registro.alimentacionDias = diasAlim; registro.alimentacionValorDia = valorDiaAlim; registro.alimentacionTotal = alimTotal;
   registro.neto = neto; registro.comentario = comentario; registro.updatedAt = nowDateStr()+" "+nowTimeStr();
-
-  if(estado==="Aprobada" && estadoAnterior!=="Aprobada"){
-    registro.aprobadoPor = usuario(); registro.fechaAprobacion = nowDateStr(); registro.horaAprobacion = nowTimeStr();
-    if(window.currentLiq.prestamoRef && prestamoVal>0){
-      var pr = DB.prestamos.filter(function(p){ return p.id===window.currentLiq.prestamoRef; })[0];
-      if(pr){
-        pr.saldo = Math.max(0, pr.saldo - prestamoVal);
-        pr.cuotasPagadas = pr.cuotasPagadas + 1;
-        logHistorial("prestamo", pr.id, "cuota descontada", "", fmt(prestamoVal)+" — saldo restante "+fmt(pr.saldo), "", quincenaKey, conductorId);
-      }
-    }
-  }
-  registro.estado = estado;
-
-  if(!existente){ DB.liquidaciones.push(registro); }
-  logHistorial("liquidacion", registro.id, "estado", estadoAnterior||"(nueva)", estado, comentario, quincenaKey, conductorId);
-  saveDB();
+  registro.elaboradoPor = registro.elaboradoPor || usuario();
+  registro.prestamoRef = window.currentLiq.prestamoRef || registro.prestamoRef || "";
 
   var cInfo = conductorById(conductorId);
   var qInfo = getQuincena(quincenaKey);
   var nombreC = cInfo ? cInfo.nombre : conductorId;
   var labelQ = qInfo ? qInfo.label : quincenaKey;
+
+  if(estado==="Aprobada"){
+    alertZone.innerHTML = '<div class="callout info">Enviando aprobación a Google Sheets…</div>';
+    registro.estado = "Aprobada";
+    enviarPostAppsScriptConRespuesta({
+      tipo: "aprobar_liquidacion",
+      usuario: usuarioLogin(),
+      fechaEnvio: nowDateStr()+" "+nowTimeStr(),
+      registro: registro,
+      prestamoDescuento: (window.currentLiq.prestamoRef && prestamoVal>0) ? {id:window.currentLiq.prestamoRef, valor:prestamoVal} : null
+    }).then(function(resp){
+      if(!resp || !resp.ok) throw new Error((resp && resp.error) || "Apps Script rechazó la aprobación.");
+      alertZone.innerHTML = '<div class="callout ok">La liquidación de <b>'+labelQ+'</b> para <b>'+nombreC+'</b> quedó aprobada en Google Sheets. Se envió el correo de notificación.</div>';
+      return recargarDesdeGoogleSheets(false);
+    }).then(function(){
+      cargarLiquidacion(); renderAprobaciones(); renderAnualDashboard();
+    }).catch(function(err){
+      alertZone.innerHTML = '<div class="callout danger">No se pudo aprobar: '+err.message+'</div>';
+    });
+    return;
+  }
+
+  if(!existente){ DB.liquidaciones.push(registro); }
+  logHistorial("liquidacion", registro.id, "estado", estadoAnterior||"(nueva)", estado, comentario, quincenaKey, conductorId);
+  registro.estado = estado;
+  saveDB();
 
   cargarLiquidacion();
   renderAprobaciones();
@@ -1137,7 +1310,7 @@ function guardarLiquidacion(estado){
 
   var mensajeFinal = "";
   if(estado==="Borrador"){
-    mensajeFinal = '<div class="callout ok">Esta liquidación quincenal se ha guardado exitosamente.</div>';
+    mensajeFinal = '<div class="callout ok">Esta liquidación quincenal se ha guardado exitosamente. El cambio se está enviando a Google Sheets.</div>';
   } else if(estado==="En revisión"){
     var asunto = "Solicitud de aprobación — liquidación quincenal";
     var cuerpo = "Se solicita tu aprobación para la siguiente liquidación quincenal:\n\n" +
@@ -1147,11 +1320,8 @@ function guardarLiquidacion(estado){
       "Total neto a pagar: "+fmt(neto)+"\n\n"+
       "Ingresa al sistema de registro y liquidación de Transporte IGC para revisarla y aprobarla.\n\n"+
       "Enviado por: "+usuario();
-    abrirGmailCompose(CORREO_APROBADOR, asunto, cuerpo);
-    mensajeFinal = '<div class="callout ok">Liquidación enviada a revisión. Se abrió una ventana de Gmail dirigida a <b>'+CORREO_APROBADOR+'</b> con la notificación lista — solo falta que la envíes desde tu correo.</div>' +
-      '<div class="callout info">Una página web sin servidor no puede enviar correos por sí sola de forma silenciosa; por eso se abre el borrador ya redactado en Gmail en vez de enviarse automáticamente.</div>';
-  } else if(estado==="Aprobada"){
-    mensajeFinal = '<div class="callout ok">La liquidación de <b>'+labelQ+'</b> para <b>'+nombreC+'</b> ha sido aprobada exitosamente por '+APROBADOR_AUTORIZADO+'.</div>';
+    abrirGmailCompose(CORREO_NOTIFICACION_APROBACION, asunto, cuerpo);
+    mensajeFinal = '<div class="callout ok">Liquidación enviada a revisión y guardada en Google Sheets. Se abrió una ventana de Gmail con un aviso opcional — puedes cerrarla si el aprobador ya revisa el sistema directamente.</div>';
   } else if(estado==="Rechazada"){
     mensajeFinal = '<div class="callout warn">La liquidación fue marcada como rechazada.</div>';
   }
@@ -1507,62 +1677,443 @@ function exportarTodo(){
   descargarLibro(wb, "sistema-igc-completo-"+nowDateStr()+".xlsx");
 }
 
-/* ===== Integración con Google Sheets vía Google Apps Script (guardado automático) ===== */
+/* ===== Google Sheets como base principal via Google Apps Script ===== */
 var asTimer = null;
 var asEnviando = false;
 var asPendienteMientrasEnviaba = false;
+var POLL_TIMER = null;
+var COLLECTION_KEYS = {
+  conductores:"id", vehiculos:"placa", rutas:"codigo", viajes:"id",
+  prestamos:"id", bonificaciones:"id", liquidaciones:"id", historial:"id"
+};
+
+function getAccessKey(){ return (localStorage.getItem(ACCESS_KEY_STORAGE) || ACCESS_KEY_DEFAULT || "").trim(); }
+function getAppsScriptUrl(){ return (URL_APPS_SCRIPT || "").trim(); }
+
+function normalizarUrlAppsScript(raw){
+  var url = String(raw || "").trim();
+  if(!url) return "";
+  url = url.replace(/\s+/g, "");
+  var q = url.indexOf("?"); if(q >= 0) url = url.slice(0,q);
+  var h = url.indexOf("#"); if(h >= 0) url = url.slice(0,h);
+  url = url.replace(/\/+$/, "");
+  return url;
+}
+
+function urlAppsScriptValida(url){
+  return /^https:\/\/script\.google\.com\/macros\/s\/[^\/]+\/exec$/.test(String(url || "").trim());
+}
+
+function guardarUrlAppsScript(){
+  var el = document.getElementById("appsScriptUrlInput");
+  var url = normalizarUrlAppsScript(el ? el.value : "");
+  if(!url){ alert("Pega la URL de la aplicación web de Apps Script."); return; }
+  if(!urlAppsScriptValida(url)){
+    alert("La URL no parece una implementación válida de Apps Script. Debe verse como https://script.google.com/macros/s/.../exec");
+    return;
+  }
+  URL_APPS_SCRIPT = url;
+  localStorage.setItem(APPS_SCRIPT_URL_STORAGE, url);
+  if(el) el.value = url;
+  SYNC_READY = false;
+  REMOTE_BASELINE = null;
+  actualizarEstadoAppsScript("URL de Apps Script guardada. Ejecuta Diagnosticar conexión.");
+  actualizarDiagnosticoBasico();
+  ejecutarDiagnosticoAppsScript(false);
+}
+
+function guardarClaveConexion(){
+  var el = document.getElementById("sheetsAccessKey");
+  var key = (el ? el.value : "").trim();
+  if(!key){ alert("Escribe la clave de conexión definida en Apps Script."); return; }
+  localStorage.setItem(ACCESS_KEY_STORAGE, key);
+  SYNC_READY = false;
+  actualizarEstadoAppsScript("clave guardada. Conectando con Google Sheets…");
+  recargarDesdeGoogleSheets(true);
+}
+
+function jsonpAppsScript(params){
+  return new Promise(function(resolve, reject){
+    var activeUrl = getAppsScriptUrl();
+    if(!activeUrl){ reject(new Error("URL de Apps Script no configurada")); return; }
+    if(!urlAppsScriptValida(activeUrl)){ reject(new Error("La URL de Apps Script no tiene el formato esperado /exec")); return; }
+    var key = getAccessKey();
+    if(!key){ reject(new Error("Falta la clave de conexión")); return; }
+
+    var cb = "__igc_jsonp_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+    var script = document.createElement("script");
+    var done = false;
+    var timeout = setTimeout(function(){ finish(new Error("Tiempo de espera agotado al consultar Google Sheets")); }, 20000);
+
+    function cleanup(){
+      clearTimeout(timeout);
+      try { delete window[cb]; } catch(e){ window[cb] = undefined; }
+      if(script.parentNode) script.parentNode.removeChild(script);
+    }
+    function finish(err, data){
+      if(done) return;
+      done = true;
+      cleanup();
+      if(err) reject(err); else resolve(data);
+    }
+
+    window[cb] = function(data){ finish(null, data); };
+    script.onerror = function(){
+      finish(new Error("No fue posible cargar la respuesta JSONP de Apps Script. Revisa que la URL /exec exista, que la implementación esté publicada como Aplicación web y que 'Quién tiene acceso' permita el acceso requerido."));
+    };
+
+    var qs = Object.assign({}, params || {}, {key:key, prefix:cb, _t:Date.now()});
+    var query = Object.keys(qs).map(function(k){ return encodeURIComponent(k)+"="+encodeURIComponent(qs[k]); }).join("&");
+    script.src = activeUrl + (activeUrl.indexOf("?") === -1 ? "?" : "&") + query;
+    document.head.appendChild(script);
+  });
+}
+
+var DIAG_LAST = {log:[], error:""};
+function diagStamp(){ return new Date().toLocaleString("es-CO"); }
+function diagSet(id, texto, clase){
+  var el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = texto===undefined || texto===null || texto==="" ? "—" : String(texto);
+  el.className = "diag-value" + (clase ? " "+clase : "");
+}
+function diagLog(msg){
+  DIAG_LAST.log.push("["+new Date().toLocaleTimeString("es-CO")+"] "+msg);
+  var el = document.getElementById("diagLog");
+  if(el) el.textContent = DIAG_LAST.log.join("\n");
+}
+function actualizarDiagnosticoBasico(){
+  var url = getAppsScriptUrl();
+  diagSet("diagOnline", navigator.onLine ? "Sí" : "No", navigator.onLine ? "diag-ok" : "diag-error");
+  diagSet("diagUrl", url || "No configurada", url ? "" : "diag-error");
+  diagSet("diagUrlFormato", urlAppsScriptValida(url) ? "Correcto — termina en /exec" : "Incorrecto", urlAppsScriptValida(url) ? "diag-ok" : "diag-error");
+  diagSet("diagClave", getAccessKey() ? "Sí — guardada en este navegador" : "No", getAccessKey() ? "diag-ok" : "diag-error");
+  diagSet("diagOrigin", location.origin || location.href, "diag-muted");
+  diagSet("diagHora", diagStamp(), "diag-muted");
+}
+function contarDatosDB(datos){
+  var partes=[];
+  Object.keys(COLLECTION_KEYS).forEach(function(k){ partes.push(k+":"+((datos && Array.isArray(datos[k]))?datos[k].length:0)); });
+  return partes.join(" · ");
+}
+function ejecutarDiagnosticoAppsScript(mostrarAviso){
+  DIAG_LAST = {log:[], error:""};
+  actualizarDiagnosticoBasico();
+  diagSet("diagPing", "Probando…", "diag-warn");
+  diagSet("diagServicio", "—"); diagSet("diagInicializado", "—"); diagSet("diagVersion", "—");
+  diagSet("diagUltimaEscritura", "—"); diagSet("diagSchema", "Pendiente"); diagSet("diagLoad", "Pendiente");
+  diagSet("diagError", "Ninguno");
+  var url = getAppsScriptUrl();
+  diagLog("Inicio del diagnóstico.");
+  diagLog("URL activa: "+(url || "(vacía)"));
+  diagLog("Origen del index.html: "+(location.origin || location.href));
+  diagLog("Navegador en línea: "+(navigator.onLine ? "sí" : "no"));
+  if(!urlAppsScriptValida(url)){
+    var e1="La URL no tiene el formato esperado de una Web App de Apps Script terminada en /exec.";
+    diagSet("diagPing", "No ejecutada", "diag-error"); diagSet("diagError", e1, "diag-error"); diagLog("ERROR: "+e1);
+    if(mostrarAviso) alert(e1);
+    return Promise.resolve(false);
+  }
+  if(!getAccessKey()){
+    var e2="Falta la clave de conexión en este navegador.";
+    diagSet("diagPing", "No ejecutada", "diag-error"); diagSet("diagError", e2, "diag-error"); diagLog("ERROR: "+e2);
+    if(mostrarAviso) alert(e2);
+    return Promise.resolve(false);
+  }
+  var started=Date.now();
+  return jsonpAppsScript({action:"ping"}).then(function(resp){
+    var ms=Date.now()-started;
+    if(!resp || !resp.ok) throw new Error((resp && resp.error) || "PING respondió sin ok:true");
+    diagSet("diagPing", "OK ("+ms+" ms)", "diag-ok");
+    diagSet("diagServicio", resp.servicio || "Respuesta válida", "diag-ok");
+    diagSet("diagInicializado", resp.inicializado ? "Sí" : "No", resp.inicializado ? "diag-ok" : "diag-warn");
+    diagSet("diagVersion", resp.version || 0, "diag-ok");
+    diagSet("diagUltimaEscritura", resp.ultimaEscritura || "Sin escrituras registradas", "diag-muted");
+    diagLog("PING correcto en "+ms+" ms. Servicio: "+(resp.servicio || "sin nombre")+".");
+    return jsonpAppsScript({action:"schema"});
+  }).then(function(resp){
+    if(!resp || !resp.ok) throw new Error((resp && resp.error) || "No fue posible leer el esquema");
+    var n=resp.schema ? Object.keys(resp.schema).length : 0;
+    diagSet("diagSchema", "OK — "+n+" tablas reconocidas", "diag-ok");
+    diagLog("Esquema correcto: "+n+" tablas.");
+    return jsonpAppsScript({action:"load"});
+  }).then(function(resp){
+    if(!resp || !resp.ok) throw new Error((resp && resp.error) || "No fue posible leer la base");
+    if(!resp.inicializado){
+      diagSet("diagLoad", "Servidor accesible, pero la base aún no está inicializada", "diag-warn");
+      diagLog("LOAD correcto, pero Apps Script informa que la base aún no está inicializada.");
+    } else {
+      diagSet("diagLoad", "OK — "+contarDatosDB(resp.datos || {}), "diag-ok");
+      diagLog("LOAD correcto. "+contarDatosDB(resp.datos || {}));
+    }
+    diagSet("diagHora", diagStamp(), "diag-muted");
+    diagSet("diagError", "Ninguno", "diag-ok");
+    diagLog("Diagnóstico completado sin errores.");
+    if(mostrarAviso) alert("Diagnóstico correcto: Apps Script respondió, la clave fue aceptada y el index.html pudo leer Google Sheets.");
+    return true;
+  }).catch(function(err){
+    var msg=err && err.message ? err.message : String(err);
+    DIAG_LAST.error=msg;
+    diagSet("diagPing", document.getElementById("diagPing") && document.getElementById("diagPing").textContent.indexOf("OK")===0 ? document.getElementById("diagPing").textContent : "FALLÓ", "diag-error");
+    diagSet("diagError", msg, "diag-error");
+    diagSet("diagHora", diagStamp(), "diag-muted");
+    diagLog("ERROR: "+msg);
+    diagLog("Posibles causas: URL /exec antigua o eliminada; implementación no publicada como Aplicación web; permisos de acceso; código implementado sin doGet/responder_ compatible; bloqueador del navegador o red corporativa.");
+    if(mostrarAviso) alert("La conexión falló. Revisa el cuadro Diagnóstico de conexión; allí aparece la etapa y el error técnico para poder identificar la causa.");
+    return false;
+  });
+}
+function limpiarDiagnosticoAppsScript(){
+  DIAG_LAST={log:[],error:""};
+  ["diagPing","diagServicio","diagInicializado","diagVersion","diagUltimaEscritura","diagSchema","diagLoad"].forEach(function(id){diagSet(id,"—");});
+  diagSet("diagError","Ninguno");
+  var log=document.getElementById("diagLog"); if(log) log.textContent="Diagnóstico limpio. Pulsa ‘Diagnosticar conexión’.";
+  actualizarDiagnosticoBasico();
+}
+function textoDiagnosticoAppsScript(){
+  var vals={
+    fecha: diagStamp(), online: navigator.onLine, url:getAppsScriptUrl(), urlValida:urlAppsScriptValida(getAppsScriptUrl()),
+    claveGuardada:!!getAccessKey(), origin:location.origin || location.href,
+    ping:(document.getElementById("diagPing")||{}).textContent || "",
+    servicio:(document.getElementById("diagServicio")||{}).textContent || "",
+    inicializado:(document.getElementById("diagInicializado")||{}).textContent || "",
+    version:(document.getElementById("diagVersion")||{}).textContent || "",
+    ultimaEscritura:(document.getElementById("diagUltimaEscritura")||{}).textContent || "",
+    schema:(document.getElementById("diagSchema")||{}).textContent || "",
+    load:(document.getElementById("diagLoad")||{}).textContent || "",
+    error:(document.getElementById("diagError")||{}).textContent || ""
+  };
+  return "DIAGNÓSTICO TRANSPORTE IGC\n"+Object.keys(vals).map(function(k){return k+": "+vals[k];}).join("\n")+"\n\nLOG:\n"+DIAG_LAST.log.join("\n");
+}
+function copiarDiagnosticoAppsScript(){
+  var txt=textoDiagnosticoAppsScript();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){alert("Diagnóstico copiado. Puedes pegarlo en el chat para revisar exactamente la falla.");}).catch(function(){copiarDiagnosticoFallback(txt);});
+  } else copiarDiagnosticoFallback(txt);
+}
+function copiarDiagnosticoFallback(txt){
+  var ta=document.createElement("textarea"); ta.value=txt; document.body.appendChild(ta); ta.select();
+  try{document.execCommand("copy"); alert("Diagnóstico copiado. Puedes pegarlo en el chat.");}catch(e){alert("No se pudo copiar automáticamente. Selecciona el texto del registro de diagnóstico y cópialo manualmente.");}
+  document.body.removeChild(ta);
+}
+
+function renderTodo(){
+  fillCommonSelects();
+  actualizarValorUnitario();
+  renderViajesRecientes();
+  renderConsolidados();
+  renderPrestamos();
+  renderBonificaciones();
+  renderAprobaciones();
+  renderHistorial();
+  renderAnualDashboard();
+  renderConfig();
+}
+
+function normalizarDBRemota(datos){
+  var base = seedDB();
+  Object.keys(COLLECTION_KEYS).forEach(function(k){
+    base[k] = datos && Array.isArray(datos[k]) ? datos[k] : [];
+  });
+  return base;
+}
+
+function mapaPorClave(arr, key){
+  var out = {};
+  (arr || []).forEach(function(r){ if(r && r[key] !== undefined && r[key] !== null) out[String(r[key])] = r; });
+  return out;
+}
+
+function registrosIguales(a,b){ return JSON.stringify(a) === JSON.stringify(b); }
+
+function construirPatch(base, actual){
+  var ops = [];
+  Object.keys(COLLECTION_KEYS).forEach(function(col){
+    var key = COLLECTION_KEYS[col];
+    var oldMap = mapaPorClave((base && base[col]) || [], key);
+    var newMap = mapaPorClave((actual && actual[col]) || [], key);
+
+    Object.keys(newMap).forEach(function(id){
+      if(!oldMap[id] || !registrosIguales(oldMap[id], newMap[id])){
+        ops.push({coleccion:col, accion:"upsert", registro:newMap[id]});
+      }
+    });
+    Object.keys(oldMap).forEach(function(id){
+      if(!newMap[id]) ops.push({coleccion:col, accion:"delete", clave:id});
+    });
+  });
+  return ops;
+}
+
+function enviarPostAppsScript(payload){
+  var key = getAccessKey();
+  if(!key) return Promise.reject(new Error("Falta la clave de conexión"));
+  payload.key = key;
+  var activeUrl = getAppsScriptUrl();
+  if(!urlAppsScriptValida(activeUrl)) return Promise.reject(new Error("URL de Apps Script no válida o no termina en /exec"));
+  return fetch(activeUrl, {
+    method:"POST",
+    mode:"no-cors",
+    headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body:JSON.stringify(payload)
+  });
+}
+
+/* Para operaciones que necesitan confirmación real del servidor (por ejemplo aprobar_liquidacion),
+   a diferencia de enviarPostAppsScript esta SÍ lee la respuesta JSON de Apps Script. */
+function enviarPostAppsScriptConRespuesta(payload){
+  var key = getAccessKey();
+  if(!key) return Promise.reject(new Error("Falta la clave de conexión"));
+  payload.key = key;
+  var activeUrl = getAppsScriptUrl();
+  if(!urlAppsScriptValida(activeUrl)) return Promise.reject(new Error("URL de Apps Script no válida o no termina en /exec"));
+  return fetch(activeUrl, {
+    method:"POST",
+    headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body:JSON.stringify(payload)
+  }).then(function(r){ return r.json(); });
+}
 
 function programarSincronizacionAppsScript(){
-  if(!URL_APPS_SCRIPT || URL_APPS_SCRIPT.indexOf("PEGAR_AQUI") !== -1) return;
+  if(!SYNC_READY || !REMOTE_BASELINE) return;
   clearTimeout(asTimer);
-  asTimer = setTimeout(enviarBackupCompletoAppsScript, 900);
+  asTimer = setTimeout(sincronizarCambiosAppsScript, 500);
+}
+
+function sincronizarCambiosAppsScript(){
+  if(!SYNC_READY || !REMOTE_BASELINE) return;
+  if(asEnviando){ asPendienteMientrasEnviaba = true; return; }
+  var ops = construirPatch(REMOTE_BASELINE, DB);
+  if(!ops.length) return;
+
+  asEnviando = true;
+  actualizarEstadoAppsScript("guardando "+ops.length+" cambio(s) en Google Sheets…");
+  var snapshotEnviado = deepClone(DB);
+
+  enviarPostAppsScript({
+    tipo:"patch_db",
+    usuario:usuario(),
+    fechaEnvio:nowDateStr()+" "+nowTimeStr(),
+    operaciones:ops
+  }).then(function(){
+    REMOTE_BASELINE = snapshotEnviado;
+    actualizarEstadoAppsScript("cambios enviados. Confirmando con Google Sheets…", "ok");
+    setTimeout(function(){ recargarDesdeGoogleSheets(false); }, 1200);
+  }).catch(function(err){
+    actualizarEstadoAppsScript("no se pudo enviar: "+err.message+". El cambio queda en la caché local.", "warn");
+  }).finally(function(){
+    asEnviando = false;
+    if(asPendienteMientrasEnviaba){
+      asPendienteMientrasEnviaba = false;
+      programarSincronizacionAppsScript();
+    }
+  });
+}
+
+function tieneDatosOperativosLocales(){
+  return !!(DB && (
+    (DB.viajes && DB.viajes.length) ||
+    (DB.prestamos && DB.prestamos.length) ||
+    (DB.bonificaciones && DB.bonificaciones.length) ||
+    (DB.liquidaciones && DB.liquidaciones.length) ||
+    (DB.historial && DB.historial.length)
+  ));
+}
+
+function inicializarGoogleSheetsDesdeLocal(){
+  actualizarEstadoAppsScript("Google Sheets está vacío. Migrando los datos de este computador…");
+  return enviarPostAppsScript({
+    tipo:"inicializar_db",
+    usuario:usuario(),
+    fechaEnvio:nowDateStr()+" "+nowTimeStr(),
+    datos:DB
+  }).then(function(){
+    return new Promise(function(resolve){ setTimeout(resolve, 1200); });
+  }).then(function(){ return cargarDBRemota(); });
+}
+
+function cargarDBRemota(){
+  return jsonpAppsScript({action:"load"}).then(function(resp){
+    if(!resp || !resp.ok) throw new Error((resp && resp.error) || "Respuesta no válida del servidor");
+    if(!resp.inicializado){
+      if(tieneDatosOperativosLocales()) return inicializarGoogleSheetsDesdeLocal();
+      SYNC_READY = false;
+      REMOTE_BASELINE = null;
+      actualizarEstadoAppsScript("Google Sheets todavía está vacío. Ábrelo primero desde el computador que conserva los datos actuales, o usa ‘Inicializar Sheets con esta caché’.", "warn");
+      return resp;
+    }
+
+    DB = normalizarDBRemota(resp.datos || {});
+    REMOTE_BASELINE = deepClone(DB);
+    LAST_SERVER_VERSION = Number(resp.version || 0);
+    SYNC_READY = true;
+    renderTodo();
+    actualizarEstadoAppsScript("conectado. Google Sheets es la base principal. Versión "+LAST_SERVER_VERSION+".", "ok");
+    return resp;
+  });
+}
+
+function recargarDesdeGoogleSheets(forzarMensaje){
+  if(!getAccessKey()){
+    SYNC_READY = false;
+    if(forzarMensaje) alert("Primero escribe y guarda la clave de conexión en Configuración → Google Sheets.");
+    actualizarEstadoAppsScript("sin conexión: falta la clave de conexión.", "warn");
+    return Promise.resolve();
+  }
+  if(forzarMensaje) actualizarEstadoAppsScript("cargando la base desde Google Sheets…");
+  return cargarDBRemota().catch(function(err){
+    SYNC_READY = false;
+    actualizarEstadoAppsScript("no fue posible cargar Google Sheets: "+err.message+". No se muestran datos porque este sistema no usa copias locales — corrige la conexión e inténtalo de nuevo.", "warn");
+    DIAG_LAST.error = err.message || String(err);
+    actualizarDiagnosticoBasico();
+    diagSet("diagError", DIAG_LAST.error, "diag-error");
+    diagLog("Carga automática falló: "+DIAG_LAST.error);
+  });
+}
+
+function hayCambiosLocalesPendientes(){
+  return !!(SYNC_READY && REMOTE_BASELINE && construirPatch(REMOTE_BASELINE, DB).length);
+}
+
+function verificarCambiosRemotos(){
+  if(!SYNC_READY || asEnviando || hayCambiosLocalesPendientes() || document.hidden) return;
+  jsonpAppsScript({action:"version"}).then(function(resp){
+    if(!resp || !resp.ok) return;
+    var v = Number(resp.version || 0);
+    if(v && v !== LAST_SERVER_VERSION) recargarDesdeGoogleSheets(false);
+  }).catch(function(){ /* el estado principal se conserva; se reintentará */ });
+}
+
+function inicializarRemotoManual(){
+  if(!getAccessKey()){ alert("Primero guarda la clave de conexión de Google Sheets."); return; }
+  if(!confirm("Esto inicializará la base remota usando los datos que están visibles en ESTE computador. Úsalo solo si Google Sheets todavía está vacío. ¿Continuar?")) return;
+  inicializarGoogleSheetsDesdeLocal().catch(function(err){
+    actualizarEstadoAppsScript("no fue posible inicializar: "+err.message, "warn");
+  });
 }
 
 function sincronizarAhoraManual(){
-  if(!URL_APPS_SCRIPT || URL_APPS_SCRIPT.indexOf("PEGAR_AQUI") !== -1){
-    alert("Falta configurar la URL de Apps Script (URL_APPS_SCRIPT) en el código de esta página.");
+  if(!getAccessKey()){
+    alert("Primero guarda la clave de conexión de Google Sheets.");
     return;
   }
-  clearTimeout(asTimer);
-  enviarBackupCompletoAppsScript();
+  if(!SYNC_READY){ recargarDesdeGoogleSheets(true); return; }
+  sincronizarCambiosAppsScript();
+  setTimeout(function(){ recargarDesdeGoogleSheets(false); }, 1500);
 }
 
-function enviarBackupCompletoAppsScript(){
-  if(!URL_APPS_SCRIPT || URL_APPS_SCRIPT.indexOf("PEGAR_AQUI") !== -1) return;
-  if(asEnviando){ asPendienteMientrasEnviaba = true; return; }
-  asEnviando = true;
-  actualizarEstadoAppsScript("Sincronizando con Google Sheets…");
-
-  var payload = {
-    tipo: "backup_completo",
-    usuario: usuario(),
-    fechaEnvio: nowDateStr()+" "+nowTimeStr(),
-    datos: DB
-  };
-
-  fetch(URL_APPS_SCRIPT, {
-    method: "POST",
-    // text/plain evita el preflight CORS que Apps Script no maneja bien.
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(payload)
-  })
-  .then(function(r){ return r.text(); })
-  .then(function(){
-    actualizarEstadoAppsScript("Sincronizado con Google Sheets — última vez: "+nowDateStr()+" "+nowTimeStr()+".", "ok");
-  })
-  .catch(function(err){
-    actualizarEstadoAppsScript("No se pudo sincronizar con Google Sheets ("+err+"). Tus datos siguen guardados en este navegador — usa \"Sincronizar ahora\" cuando tengas conexión.", "warn");
-  })
-  .finally(function(){
-    asEnviando = false;
-    if(asPendienteMientrasEnviaba){ asPendienteMientrasEnviaba = false; programarSincronizacionAppsScript(); }
-  });
+function iniciarPollingRemoto(){
+  clearInterval(POLL_TIMER);
+  POLL_TIMER = setInterval(verificarCambiosRemotos, 15000);
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden) verificarCambiosRemotos(); });
+  window.addEventListener("focus", verificarCambiosRemotos);
 }
 
 function actualizarEstadoAppsScript(texto, tipo){
   var el = document.getElementById("asEstado");
-  if(!el) return;
-  el.textContent = "Estado: " + texto;
+  if(el) el.textContent = "Estado: " + texto;
+  var er = document.getElementById("sheetsEstadoRegistro");
+  if(er) er.textContent = "Google Sheets: " + texto;
 }
 
 var TAB_REFRESH = {
@@ -1584,28 +2135,35 @@ document.querySelectorAll(".tab-btn").forEach(function(btn){
   });
 });
 
-document.getElementById("usuarioActual").addEventListener("input", function(){
-  localStorage.setItem(USER_KEY, this.value);
-});
+var APLICATIVO_INICIADO = false;
+function arrancarAplicativoTrasLogin(){
+  if(APLICATIVO_INICIADO) return;
+  APLICATIVO_INICIADO = true;
+  renderTodo();
+  iniciarPollingRemoto();
+  if(getAccessKey()){
+    actualizarEstadoAppsScript("usuario validado. Consultando Google Sheets…");
+    recargarDesdeGoogleSheets(false);
+  } else {
+    actualizarEstadoAppsScript("falta la clave de conexión. Ve a Configuración → Google Sheets.", "warn");
+  }
+}
 
 function init(){
+  cargarSesion();
   loadDB();
-  var savedUser = localStorage.getItem(USER_KEY);
-  if(savedUser) document.getElementById("usuarioActual").value = savedUser;
-  fillCommonSelects();
+  var keyInput = document.getElementById("sheetsAccessKey");
+  if(keyInput) keyInput.value = getAccessKey();
+  var urlInput = document.getElementById("appsScriptUrlInput");
+  if(urlInput) urlInput.value = getAppsScriptUrl();
+  actualizarDiagnosticoBasico();
+
   document.getElementById("vFecha").value = nowDateStr();
   document.getElementById("pFecha").value = nowDateStr();
   document.getElementById("bFecha").value = nowDateStr();
-  actualizarValorUnitario();
-  renderViajesRecientes();
-  renderConsolidados();
-  renderPrestamos();
-  renderBonificaciones();
-  renderAprobaciones();
-  renderHistorial();
-  renderAnualDashboard();
-  renderConfig();
-  actualizarEstadoAppsScript("listo. Cada cambio que hagas se enviará automáticamente a Google Sheets.");
+
+  /* Sin sesión no se toca Google Sheets todavía: se espera a que el usuario inicie sesión. */
+  if(SESION) arrancarAplicativoTrasLogin();
 }
 init();
 </script>
